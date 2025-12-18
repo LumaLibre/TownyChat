@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -27,7 +28,7 @@ public class PersistentChannelLeaveHandler {
     public List<String> getIgnoredChannels() {
         String rawData = player.getPersistentDataContainer().get(IGNORED_CHANNELS_KEY, PersistentDataType.STRING);
         if (rawData == null || rawData.isEmpty()) {
-            return Collections.emptyList();
+            return new ArrayList<>();
         }
         return GSON.fromJson(rawData, STRING_LIST_TYPE_TOKEN);
     }
