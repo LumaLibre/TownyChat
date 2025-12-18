@@ -6,6 +6,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import com.palmergames.bukkit.TownyChat.util.PersistentChannelLeaveHandler;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
@@ -296,8 +297,7 @@ public abstract class Channel {
 	
 	/**
 	 * deprecated since 0.110, this setting has been unused for an unknown amount of time.
-	 * @param autojoin
-	 */
+     */
 	@Deprecated
 	public boolean isAutoJoin() {
 		return autojoin;
@@ -364,26 +364,39 @@ public abstract class Channel {
 		return false;
 	}
 
-	private void playerAddIgnoreMeta(Player player) {
+    public void playerAddIgnoreMeta(Player player) {
+        playerAddIgnoreMeta(player, true);
+    }
+
+	public void playerAddIgnoreMeta(Player player, boolean persist) {
 		StringDataField icdf = new StringDataField("townychat_ignoredChannels", "", "Ignored TownyChat Channels");
 		Resident resident = TownyUniverse.getInstance().getResident(player.getUniqueId()); 
 		if (resident == null)
 			return;
 
 		if (resident.hasMeta(icdf.getKey())) {
-			CustomDataField<?> cdf = resident.getMetadata(icdf.getKey());
-			if (cdf instanceof StringDataField) {
-				StringDataField sdf = (StringDataField) cdf;
-				sdf.setValue(sdf.getValue().concat(", " + this.getName()));
-				TownyUniverse.getInstance().getDataSource().saveResident(resident);
-			}
+            concatIgnoreChannelMeta(icdf, resident);
 
-		} else {
+        } else {
 			resident.addMetaData(new StringDataField("townychat_ignoredChannels", this.getName(), "Ignored TownyChat Channels"));
 		}
+
+        if (persist) {
+            PersistentChannelLeaveHandler persistentLeaveHandler = new PersistentChannelLeaveHandler(player);
+            persistentLeaveHandler.addIgnoredChannel(this.getName());
+        }
 	}
-	
-	private void playerRemoveIgnoreMeta(Player player) {
+
+    private void concatIgnoreChannelMeta(StringDataField icdf, Resident resident) {
+        CustomDataField<?> cdf = resident.getMetadata(icdf.getKey());
+        if (cdf instanceof StringDataField) {
+            StringDataField sdf = (StringDataField) cdf;
+            sdf.setValue(sdf.getValue().concat(", " + this.getName()));
+            TownyUniverse.getInstance().getDataSource().saveResident(resident);
+        }
+    }
+
+    private void playerRemoveIgnoreMeta(Player player) {
 		StringDataField icdf = new StringDataField("townychat_ignoredChannels", "", "Ignored TownyChat Channels");
 		Resident resident = TownyUniverse.getInstance().getResident(player.getUniqueId()); 
 		if (resident == null || !resident.hasMeta(icdf.getKey()))
@@ -392,23 +405,28 @@ public abstract class Channel {
 		CustomDataField<?> cdf = resident.getMetadata(icdf.getKey());
 		if (cdf instanceof StringDataField) {
 			StringDataField sdf = (StringDataField) cdf;
-			String newValues = "";
+			StringBuilder newValues = new StringBuilder();
 			String[] values = sdf.getValue().split(", ");
-			for (String chanName : values)
-				if (!chanName.equalsIgnoreCase(this.getName()))
-					if (newValues.isEmpty())
-						newValues = chanName;
-					else 
-						newValues += ", " + chanName;
+			for (String chanName : values) {
+                if (!chanName.equalsIgnoreCase(this.getName())) {
+                    if (newValues.length() == 0) {
+                        newValues.append(chanName);
+                    } else {
+                        newValues.append(", ").append(chanName);
+                    }
+                }
+            }
 
-			if (!newValues.isEmpty()) {
-				sdf.setValue(newValues);
+			if (newValues.length() > 0) {
+				sdf.setValue(newValues.toString());
 				TownyUniverse.getInstance().getDataSource().saveResident(resident);
 			} else {
 				resident.removeMetaData(icdf);
 			}
 		}
-		
+
+        PersistentChannelLeaveHandler persistentLeaveHandler = new PersistentChannelLeaveHandler(player);
+        persistentLeaveHandler.removeIgnoredChannel(this.getName());
 	}
 
 	private boolean playerIgnoringThisChannel(Player player) {
@@ -434,13 +452,8 @@ public abstract class Channel {
 			return;
 
 		if (resident.hasMeta(icdf.getKey())) {
-			CustomDataField<?> cdf = resident.getMetadata(icdf.getKey());
-			if (cdf instanceof StringDataField) {
-				StringDataField sdf = (StringDataField) cdf;
-				sdf.setValue(sdf.getValue().concat(", " + this.getName()));
-				TownyUniverse.getInstance().getDataSource().saveResident(resident);
-			}
-		} else {
+            concatIgnoreChannelMeta(icdf, resident);
+        } else {
 			resident.addMetaData(new StringDataField("townychat_soundOffChannels", this.getName(), "TownyChat Channels with Sound Toggle Off"));
 		}
 	}

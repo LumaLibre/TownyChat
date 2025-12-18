@@ -5,6 +5,7 @@ import com.palmergames.bukkit.TownyChat.TownyChatFormatter;
 import com.palmergames.bukkit.TownyChat.channels.Channel;
 import com.palmergames.bukkit.TownyChat.channels.channelTypes;
 import com.palmergames.bukkit.TownyChat.config.ChatSettings;
+import com.palmergames.bukkit.TownyChat.util.PersistentChannelLeaveHandler;
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.TownyMessaging;
 import com.palmergames.bukkit.towny.object.Resident;
@@ -37,8 +38,9 @@ public class TownyChatPlayerListener implements Listener  {
 
 	@EventHandler(priority = EventPriority.LOW)
 	public void onPlayerJoin(final PlayerJoinEvent event) {
+        Player player = event.getPlayer();
 		
-		plugin.getScheduler().runLater(event.getPlayer(), () -> loginPlayer(event.getPlayer()), 2L);
+		plugin.getScheduler().runLater(player, () -> loginPlayer(player), 1L);
 
 	}
 
@@ -53,6 +55,17 @@ public class TownyChatPlayerListener implements Listener  {
 			if (ChatSettings.getShowChannelMessageOnServerJoin())
 				TownyMessaging.sendMessage(player, Translatable.of("tc_you_are_now_talking_in_channel", channel.getName()));
 		}
+
+        // Yes, this is terrible.
+        // But to be honest, the rest of the code in this project isn't clean enough
+        // for me to really care about how this looks.
+        PersistentChannelLeaveHandler persistentLeaveHandler = new PersistentChannelLeaveHandler(player);
+        for (String channelName : persistentLeaveHandler.getIgnoredChannels()) {
+            Channel ignoredChannel = plugin.getChannelsHandler().getChannel(channelName);
+            if (ignoredChannel != null) {
+                ignoredChannel.playerAddIgnoreMeta(player, false);
+            }
+        }
 	}
 
 	@EventHandler(priority = EventPriority.LOW)
