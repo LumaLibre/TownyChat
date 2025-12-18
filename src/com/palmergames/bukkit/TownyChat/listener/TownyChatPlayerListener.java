@@ -24,8 +24,10 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.util.List;
 import java.util.UnknownFormatConversionException;
 import java.util.WeakHashMap;
+import java.util.stream.Collectors;
 
 public class TownyChatPlayerListener implements Listener  {
 	private Chat plugin;
@@ -49,22 +51,48 @@ public class TownyChatPlayerListener implements Listener  {
 		
 		refreshPlayerChannels(player);
 
-		Channel channel = plugin.getChannelsHandler().getDefaultChannel();
-		if (channel != null && channel.hasSpeakPermission(player)) {
-			plugin.setPlayerChannel(player, channel);
-			if (ChatSettings.getShowChannelMessageOnServerJoin())
-				TownyMessaging.sendMessage(player, Translatable.of("tc_you_are_now_talking_in_channel", channel.getName()));
-		}
-
         // Yes, this is terrible.
         // But to be honest, the rest of the code in this project isn't clean enough
         // for me to really care about how this looks.
         PersistentChannelLeaveHandler persistentLeaveHandler = new PersistentChannelLeaveHandler(player);
-        for (String channelName : persistentLeaveHandler.getIgnoredChannels()) {
-            Channel ignoredChannel = plugin.getChannelsHandler().getChannel(channelName);
-            if (ignoredChannel != null) {
-                ignoredChannel.playerAddIgnoreMeta(player, false);
+        List<String> ignoredChannels = persistentLeaveHandler.getIgnoredChannels();
+
+        if (!ignoredChannels.isEmpty()) {
+            for (String channelName : ignoredChannels) {
+                Channel ignoredChannel = plugin.getChannelsHandler().getChannel(channelName);
+                if (ignoredChannel != null) {
+                    ignoredChannel.playerAddIgnoreMeta(player, false);
+                }
             }
+
+            // lol
+            Channel nextChannel = null;
+            if (plugin.getChannelsHandler().getDefaultChannel() != null && plugin.getChannelsHandler().getDefaultChannel().isPresent(player.getName())) {
+                nextChannel = plugin.getChannelsHandler().getDefaultChannel();
+            }
+
+            if (nextChannel == null) {
+                nextChannel = plugin.getChannelsHandler().getActiveChannel(player, channelTypes.GLOBAL);
+            }
+
+            if (nextChannel == null) {
+                return;
+            }
+
+
+            boolean containsChannel = ignoredChannels.stream().map(String::toLowerCase).collect(Collectors.toList()).contains(nextChannel.getName().toLowerCase());
+            if (!containsChannel) {
+                TownyMessaging.sendMessage(player, Translatable.of("tc_you_are_now_talking_in_channel", nextChannel.getName()));
+                plugin.setPlayerChannel(player, nextChannel);
+            }
+            return;
+        }
+
+        Channel channel = plugin.getChannelsHandler().getDefaultChannel();
+        if (channel != null && channel.hasSpeakPermission(player)) {
+            plugin.setPlayerChannel(player, channel);
+            if (ChatSettings.getShowChannelMessageOnServerJoin())
+                TownyMessaging.sendMessage(player, Translatable.of("tc_you_are_now_talking_in_channel", channel.getName()));
         }
 	}
 
